@@ -1,0 +1,71 @@
+{
+  "name": "css-a11y-checker",
+  "displayName": "CSS Accessibility Checker",
+  "description": "Real-time CSS accessibility detection using axe-core + jsdom",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "onLanguage:html",
+    "onLanguage:css"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cssA11y.runNow",
+        "title": "Run CSS A11y Analysis Now"
+      }
+    ],
+    "configuration": {
+      "title": "CSS A11y Checker",
+      "properties": {
+        "cssA11y.debounceMs": {
+          "type": "number",
+          "default": 500,
+          "description": "Debounce delay in ms before running analysis"
+        },
+        "cssA11y.enabledRules": {
+          "type": "array",
+          "default": [
+            "color-contrast",
+            "color-contrast-enhanced",
+            "link-in-text-block"
+          ],
+          "description": "axe-core rules to enable"
+        },
+        "cssA11y.wcagLevel": {
+          "type": "string",
+          "enum": [
+            "wcag2a",
+            "wcag2aa",
+            "wcag2aaa",
+            "wcag21aa"
+          ],
+          "default": "wcag2aa",
+          "description": "WCAG conformance level to enforce"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "axe-core": "^4.11.2",
+    "jsdom": "^24.1.3",
+    "playwright": "^1.59.1"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
