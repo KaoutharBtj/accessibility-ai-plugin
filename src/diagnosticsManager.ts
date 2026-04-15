@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import { A11yIssue } from './analyzer';
+import { A11yIssue, Severity } from './core/types';
 
-const IMPACT_SEVERITY: Record<string, vscode.DiagnosticSeverity> = {
+const SEVERITY_TO_VSCODE: Record<Severity, vscode.DiagnosticSeverity> = {
   critical: vscode.DiagnosticSeverity.Error,
-  serious:  vscode.DiagnosticSeverity.Error,
-  moderate: vscode.DiagnosticSeverity.Warning,
-  minor:    vscode.DiagnosticSeverity.Information,
+  high:     vscode.DiagnosticSeverity.Error,
+  medium:   vscode.DiagnosticSeverity.Warning,
+  low:      vscode.DiagnosticSeverity.Information,
 };
 
 export class DiagnosticsManager implements vscode.Disposable {
@@ -16,11 +16,18 @@ export class DiagnosticsManager implements vscode.Disposable {
     this.collection = vscode.languages.createDiagnosticCollection('css-a11y');
   }
 
+  /**
+   * Update diagnostics for a given URI with the unified A11yIssue array
+   */
   update(uri: vscode.Uri, issues: A11yIssue[]): void {
     const diagnostics = issues.map(issue => this.issueToDiagnostic(issue, uri));
     this.collection.set(uri, diagnostics);
+    console.log('[DiagnosticsManager] Updated', diagnostics.length, 'diagnostics for', uri.toString());
   }
 
+  /**
+   * Clear diagnostics for a given URI
+   */
   clear(uri: vscode.Uri): void {
     this.collection.delete(uri);
   }
@@ -29,86 +36,62 @@ export class DiagnosticsManager implements vscode.Disposable {
     this.collection.dispose();
   }
 
-
+  /**
+   * Convert unified A11yIssue to VSCode Diagnostic
+   */
   private issueToDiagnostic(
     issue: A11yIssue,
     uri: vscode.Uri
   ): vscode.Diagnostic {
 
     const range = this.resolveRange(uri, issue);
-
-    const message = this.buildMessage(issue);
-
     const diagnostic = new vscode.Diagnostic(
       range,
-      message,
-      IMPACT_SEVERITY[issue.impact] ?? vscode.DiagnosticSeverity.Warning
+      issue.message,
+      SEVERITY_TO_VSCODE[issue.severity] ?? vscode.DiagnosticSeverity.Warning
     );
 
-    diagnostic.source = 'css-a11y';
-    diagnostic.code = {
-      value: issue.ruleId,
-      target: vscode.Uri.parse(issue.helpUrl),
-    };
+    diagnostic.source = `a11y-${issue.source}`;
+    diagnostic.code = issue.rule;
 
-    if (issue.impact === 'minor') {
+    // Add tags for low severity
+    if (issue.severity === 'low') {
       diagnostic.tags = [vscode.DiagnosticTag.Unnecessary];
     }
 
     return diagnostic;
   }
 
-
-  private buildMessage(issue: A11yIssue): string {
-    const wcag = issue.wcagCriteria.join(', ') || 'best-practice';
-    let msg = `[${issue.impact.toUpperCase()}] ${issue.help} (${wcag})`;
-
-    if (issue.contrastData) {
-      const { fgColor, bgColor, contrastRatio, expectedRatio } = issue.contrastData;
-      msg +=
-        `\n  • Contrast ratio: ${contrastRatio.toFixed(2)}:1 ` +
-        `(required ≥ ${expectedRatio}:1)` +
-        `\n  • Foreground: ${fgColor}  Background: ${bgColor}`;
+  /**
+   * Resolve the range for a diagnostic based on line/column or file content
+   */
+  private resolveRange(uri: vscode.Uri, issue: A11yIssue): vscode.Range {
+    // If line is provided, use it directly
+    if (issue.line !== undefined) {
+      const column = issue.column ?? 0;
+      return new vscode.Range(issue.line - 1, column, issue.line - 1, column + 1);
     }
 
-    msg += `\n  • Selector: ${issue.target.join(' > ')}`;
-    return msg;
-  }
-
-  private resolveRange(uri: vscode.Uri, issue: A11yIssue): vscode.Range {
+    // Otherwise, try to find the selector in the file
     const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
     if (!doc) return new vscode.Range(0, 0, 0, 1);
 
     const text = doc.getText();
     const lines = text.split('\n');
-    const selector = issue.target[0] ?? '';
-    const simplePart = selector.split(/\s*[>+~]\s*/).pop()?.trim() ?? '';
 
-    if (!simplePart) return new vscode.Range(0, 0, 0, 1);
-
-    const patterns = selectorToPatterns(simplePart);
-
+    // Try to find a relevant line based on the rule or message
+    const searchTerms = issue.rule ? [issue.rule] : [];
+    
     for (let i = 0; i < lines.length; i++) {
-      if (patterns.some(p => lines[i].toLowerCase().includes(p.toLowerCase()))) {
-        const col = lines[i].search(/\S/); // first non-whitespace col
-        return new vscode.Range(i, col, i, lines[i].length);
+      const lowerLine = lines[i].toLowerCase();
+      for (const term of searchTerms) {
+        if (lowerLine.includes(term.toLowerCase())) {
+          const col = lines[i].search(/\S/);
+          return new vscode.Range(i, col, i, lines[i].length);
+        }
       }
     }
 
     return new vscode.Range(0, 0, 0, 1);
   }
-}
-
-
-function selectorToPatterns(selector: string): string[] {
-  if (selector.startsWith('#')) {
-    const id = selector.slice(1);
-    return [`id="${id}"`, `id='${id}'`];
-  }
-  if (selector.startsWith('.')) {
-    const cls = selector.slice(1);
-    return [`class="${cls}"`, `class='${cls}'`, `class="${cls} `, `class='${cls} `];
-  }
-  // Tag selector
-  return [`<${selector.replace(/[:[.#].*/, '')}`];
 }

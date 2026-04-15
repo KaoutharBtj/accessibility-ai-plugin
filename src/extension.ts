@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { A11yAnalyzer } from './analyzer';
+import { Orchestrator } from './core/orchestrator';
 import { DiagnosticsManager } from './diagnosticsManager';
 import { debounce } from './utils';
 
@@ -7,15 +7,23 @@ export function activate(context: vscode.ExtensionContext) {
   console.log('[css-a11y] Extension activated');
 
   const diagnosticsManager = new DiagnosticsManager();
-  const analyzer = new A11yAnalyzer();
+  const orchestrator = Orchestrator.getInstance();
 
   const runAnalysis = debounce(async (document: vscode.TextDocument) => {
-    if (!['html', 'css'].includes(document.languageId)) return;
+    if (!['html', 'css', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact'].includes(document.languageId)) {
+      return;
+    }
 
     try {
-      console.log('[css-a11y] Analyzing:', document.fileName);
-      const issues = await analyzer.analyze(document);
-      console.log('[css-a11y] Issues found:', issues.length, issues.map(i => i.ruleId));
+      console.log('[css-a11y] Analyzing:', document.fileName, 'language:', document.languageId);
+      
+      const issues = await orchestrator.run(
+        document.getText(),
+        document.fileName,
+        document.languageId
+      );
+      
+      console.log('[css-a11y] Issues found:', issues.length);
       diagnosticsManager.update(document.uri, issues);
     } catch (err) {
       console.error('[css-a11y] Analysis error:', err);
@@ -53,7 +61,7 @@ export function activate(context: vscode.ExtensionContext) {
     saveListener,
     commandDisposable,
     diagnosticsManager,
-    new vscode.Disposable(() => analyzer.dispose()),
+    new vscode.Disposable(() => orchestrator.dispose()),
   );
 }
 

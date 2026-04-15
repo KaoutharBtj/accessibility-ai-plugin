@@ -36,20 +36,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
-const analyzer_1 = require("./analyzer");
+const orchestrator_1 = require("./core/orchestrator");
 const diagnosticsManager_1 = require("./diagnosticsManager");
 const utils_1 = require("./utils");
 function activate(context) {
     console.log('[css-a11y] Extension activated');
     const diagnosticsManager = new diagnosticsManager_1.DiagnosticsManager();
-    const analyzer = new analyzer_1.A11yAnalyzer();
+    const orchestrator = orchestrator_1.Orchestrator.getInstance();
     const runAnalysis = (0, utils_1.debounce)(async (document) => {
-        if (!['html', 'css'].includes(document.languageId))
+        if (!['html', 'css', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact'].includes(document.languageId)) {
             return;
+        }
         try {
-            console.log('[css-a11y] Analyzing:', document.fileName);
-            const issues = await analyzer.analyze(document);
-            console.log('[css-a11y] Issues found:', issues.length, issues.map(i => i.ruleId));
+            console.log('[css-a11y] Analyzing:', document.fileName, 'language:', document.languageId);
+            const issues = await orchestrator.run(document.getText(), document.fileName, document.languageId);
+            console.log('[css-a11y] Issues found:', issues.length);
             diagnosticsManager.update(document.uri, issues);
         }
         catch (err) {
@@ -73,7 +74,7 @@ function activate(context) {
             runAnalysis(editor.document);
         }
     });
-    context.subscriptions.push(changeListener, openListener, saveListener, commandDisposable, diagnosticsManager, new vscode.Disposable(() => analyzer.dispose()));
+    context.subscriptions.push(changeListener, openListener, saveListener, commandDisposable, diagnosticsManager, new vscode.Disposable(() => orchestrator.dispose()));
 }
 function deactivate() {
     console.log('[css-a11y] Extension deactivated');
