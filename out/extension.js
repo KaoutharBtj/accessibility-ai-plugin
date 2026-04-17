@@ -39,19 +39,42 @@ const vscode = __importStar(require("vscode"));
 const orchestrator_1 = require("./core/orchestrator");
 const diagnosticsManager_1 = require("./diagnosticsManager");
 const utils_1 = require("./utils");
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 function activate(context) {
     console.log('[css-a11y] Extension activated');
+    vscode.window.showInformationMessage('CSS A11y Extension Activated!');
     const diagnosticsManager = new diagnosticsManager_1.DiagnosticsManager();
     const orchestrator = orchestrator_1.Orchestrator.getInstance();
     const runAnalysis = (0, utils_1.debounce)(async (document) => {
         if (!['html', 'css', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact'].includes(document.languageId)) {
             return;
         }
+        // APRÈS
         try {
             console.log('[css-a11y] Analyzing:', document.fileName, 'language:', document.languageId);
             const issues = await orchestrator.run(document.getText(), document.fileName, document.languageId);
             console.log('[css-a11y] Issues found:', issues.length);
             diagnosticsManager.update(document.uri, issues);
+            // ✅ Écriture automatique du JSON
+            const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+            const targetDir = workspaceFolder ? workspaceFolder.uri.fsPath : path.dirname(document.uri.fsPath);
+            const report = {
+                generatedAt: new Date().toISOString(),
+                file: document.fileName,
+                language: document.languageId,
+                issueCount: issues.length,
+                issues: issues.map((issue) => ({
+                    rule: issue.rule ?? issue.code ?? 'unknown',
+                    severity: issue.severity ?? 'warning',
+                    message: issue.message ?? String(issue),
+                    line: issue.range?.start?.line ?? issue.line ?? null,
+                    column: issue.range?.start?.character ?? issue.column ?? null,
+                }))
+            };
+            const jsonPath = path.join(targetDir, 'accessibility-errors.json');
+            fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8');
+            console.log('[css-a11y] Report written to:', jsonPath);
         }
         catch (err) {
             console.error('[css-a11y] Analysis error:', err);
