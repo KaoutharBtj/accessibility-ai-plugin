@@ -102,8 +102,11 @@ export class Orchestrator {
         'link-in-text-block',
         'scrollable-region-focusable',
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Orchestrator] Axe engine error:', err);
+      import('vscode').then(vscode => {
+        vscode.window.showErrorMessage('AxeEngine failed: ' + err.message + '. Try running "npx playwright install chromium" in terminal.');
+      });
       return [];
     }
   }
