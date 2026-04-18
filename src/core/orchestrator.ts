@@ -3,14 +3,10 @@ import { AxeEngine } from '../engines/axeEngine';
 import { ESLintEngine } from '../engines/eslintEngine';
 import { TSEngine } from '../engines/tsEngine';
 import { RgaaEngine } from '../engines/rgaaEngine';
+import { CSSEngine } from '../engines/cssengine';
+import * as fs from 'fs';
+import * as path from 'path';
 
-/**
- * Orchestrator - Central brain that coordinates all analysis engines
- * 
- * This class implements the orchestrator pattern to unify multiple
- * accessibility analysis engines (axe-core, ESLint jsx-a11y, TypeScript rules)
- * and normalize their results into a single format for VSCode diagnostics.
- */
 export class Orchestrator {
   private static instance: Orchestrator | null = null;
 
@@ -23,14 +19,6 @@ export class Orchestrator {
     return Orchestrator.instance;
   }
 
-  /**
-   * Run all accessibility engines on the given file content
-   * 
-   * @param fileContent - The content of the file to analyze
-   * @param filePath - The path to the file being analyzed
-   * @param languageId - The VSCode language ID (html, css, javascript, etc.)
-   * @returns Promise<A11yIssue[]> - Array of unified accessibility issues
-   */
   public async run(
     fileContent: string,
     filePath: string,
@@ -39,17 +27,12 @@ export class Orchestrator {
     console.log('[Orchestrator] Starting analysis for:', filePath, 'language:', languageId);
 
     const results = await this.runEngines(fileContent, filePath, languageId);
-    
-    // Sort by severity (critical first)
     const sortedResults = this.sortBySeverity(results);
-    
+
     console.log('[Orchestrator] Analysis complete. Total issues:', sortedResults.length);
     return sortedResults;
   }
 
-  /**
-   * Run all enabled engines in parallel
-   */
   private async runEngines(
     fileContent: string,
     filePath: string,
@@ -57,26 +40,28 @@ export class Orchestrator {
   ): Promise<A11yIssue[]> {
     const enginePromises: Promise<A11yIssue[]>[] = [];
 
-    // Determine which engines to run based on file type
     if (languageId === 'html') {
-      // HTML files: run axe + RGAA for accessibility
+      // Collect linked CSS to inject into axe analysis
+      const cssContent = this.collectLinkedCss(fileContent, filePath);
+
       enginePromises.push(
-        this.runAxe(fileContent, filePath),
+        this.runAxe(fileContent, filePath, cssContent),
         RgaaEngine.run(fileContent, filePath)
       );
+
     } else if (languageId === 'css') {
-      // CSS files: run axe (needs HTML context)
-      // For now, return empty - CSS analysis requires HTML context
-      console.log('[Orchestrator] CSS analysis requires HTML context');
-    } else if (languageId === 'javascript' || languageId === 'javascriptreact') {
-      // JS/JSX files: run ESLint, TS engine, and RGAA
+      // ✅ CSS: dedicated CSS engine for static analysis
       enginePromises.push(
-        ESLintEngine.run(fileContent, filePath),
-        TSEngine.run(fileContent, filePath),
-        RgaaEngine.run(fileContent, filePath)
+        CSSEngine.run(fileContent, filePath)
       );
-    } else if (languageId === 'typescript' || languageId === 'typescriptreact') {
-      // TS/TSX files: run ESLint, TS engine, and RGAA
+
+    } else if (
+      languageId === 'javascript' ||
+      languageId === 'javascriptreact' ||
+      languageId === 'typescript' ||
+      languageId === 'typescriptreact'
+    ) {
+      // ✅ TS/JS: ESLint (jsx-a11y) + TSEngine (AST + DOM patterns)
       enginePromises.push(
         ESLintEngine.run(fileContent, filePath),
         TSEngine.run(fileContent, filePath),
@@ -84,19 +69,47 @@ export class Orchestrator {
       );
     }
 
-    // Run all engines in parallel
     const results = await Promise.all(enginePromises);
-    
-    // Flatten and merge results
     return results.flat();
   }
 
   /**
-   * Run Axe engine for HTML content
+   * Try to find and load CSS files linked from HTML, to give axe full context.
    */
-  private async runAxe(htmlContent: string, filePath: string): Promise<A11yIssue[]> {
+  private collectLinkedCss(htmlContent: string, htmlFilePath: string): string {
+    const cssBlocks: string[] = [];
+    const dir = path.dirname(htmlFilePath);
+
+    // Extract <link rel="stylesheet" href="...">
+    const linkRegex = /<link[^>]+rel=["']stylesheet["'][^>]+href=["']([^"']+)["']/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = linkRegex.exec(htmlContent)) !== null) {
+      const href = match[1];
+      if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('//')) {
+        continue; // Skip external CDN stylesheets
+      }
+      try {
+        const cssPath = path.resolve(dir, href);
+        if (fs.existsSync(cssPath)) {
+          cssBlocks.push(fs.readFileSync(cssPath, 'utf8'));
+          console.log('[Orchestrator] Loaded CSS:', cssPath);
+        }
+      } catch (e) {
+        console.warn('[Orchestrator] Could not load CSS:', href, e);
+      }
+    }
+
+    return cssBlocks.join('\n');
+  }
+
+  private async runAxe(
+    htmlContent: string,
+    filePath: string,
+    cssContent: string = ''
+  ): Promise<A11yIssue[]> {
     try {
-      return await AxeEngine.run(htmlContent, '', [
+      return await AxeEngine.run(htmlContent, cssContent, [
         'color-contrast',
         'color-contrast-enhanced',
         'link-in-text-block',
@@ -108,9 +121,6 @@ export class Orchestrator {
     }
   }
 
-  /**
-   * Sort issues by severity (critical > high > medium > low)
-   */
   private sortBySeverity(issues: A11yIssue[]): A11yIssue[] {
     const severityOrder: Record<string, number> = {
       critical: 4,
@@ -126,9 +136,6 @@ export class Orchestrator {
     });
   }
 
-  /**
-   * Clean up resources (browser, etc.)
-   */
   public async dispose(): Promise<void> {
     await AxeEngine.dispose();
     console.log('[Orchestrator] Disposed all engine resources');
