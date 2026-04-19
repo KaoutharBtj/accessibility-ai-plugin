@@ -1,54 +1,29 @@
-import * as vscode from 'vscode';
 import * as ts from 'typescript';
 import { A11yIssue, Severity } from '../core/types';
 
-/**
- * TypeScript Engine - Static analysis for TypeScript accessibility patterns
- * 
- * This engine performs static analysis on TypeScript/JavaScript files to detect
- * common accessibility issues that can't be caught by other tools.
- */
 export class TSEngine {
-  // Common accessibility-related patterns to check
+  // Seulement les patterns NON couverts par l'AST
   private static readonly ACCESSIBILITY_PATTERNS = [
     {
-      // Missing alt prop on img
-      pattern: /<img[^>]*(?<!alt)=["'][^"']*["']/gi,
-      rule: 'img-missing-alt',
-      message: 'Images must have an alt prop',
-      severity: 'high' as Severity,
-    },
-    {
-      // Missing lang attribute on html
-      pattern: /<html[^>]*(?<!lang)=["'][^"']*["']/gi,
-      rule: 'html-missing-lang',
-      message: 'HTML element must have a lang attribute',
-      severity: 'high' as Severity,
-    },
-    {
       // Interactive elements without keyboard handlers
-      pattern: /<(button|a|input|select|textarea)[^>]*onClick[^>]*>(?![\s\S]*onKey)/gi,
+      pattern: /<(div|span|li|td)[^>]*onClick[^>]*>/gi,
       rule: 'interactive-no-keyboard',
       message: 'Interactive elements should have keyboard event handlers',
       severity: 'medium' as Severity,
     },
     {
       // Missing form label
-      pattern: /<input[^>]*type=["'](?:text|email|password|search|tel|url)[^"']*["'][^>]*id=["'][^"']*["'][^>]*(?<!aria-label)(?<!aria-labelledby)(?<!aria-describedby)/gi,
+      pattern: /<input[^>]*type=["'](?:text|email|password|search|tel|url)[^"']*["'][^>]*(?!aria-label)(?!aria-labelledby)(?!id=)[^>]*>/gi,
       rule: 'input-missing-label',
       message: 'Form inputs should have associated labels',
       severity: 'high' as Severity,
     },
   ];
 
-  /**
-   * Run TypeScript static analysis on file content
-   */
   public static async run(
     fileContent: string,
     filePath: string
   ): Promise<A11yIssue[]> {
-    // Only process TS/TSX/JS/JSX files
     if (!filePath.match(/\.(ts|tsx|js|jsx)$/i)) {
       console.log('[TSEngine] Skipping non-TS/JS file:', filePath);
       return [];
@@ -56,22 +31,19 @@ export class TSEngine {
 
     const issues: A11yIssue[] = [];
 
-    // Run pattern-based analysis
-    const patternIssues = TSEngine.analyzePatterns(fileContent, filePath);
-    issues.push(...patternIssues);
+    // Patterns uniquement pour les fichiers JS/JSX
+    if (filePath.match(/\.(js|jsx)$/i)) {
+      issues.push(...TSEngine.analyzePatterns(fileContent, filePath));
+    }
 
-    // Run AST-based analysis for TypeScript files
+    // AST pour les fichiers TS/TSX (plus précis)
     if (filePath.match(/\.(ts|tsx)$/i)) {
-      const astIssues = TSEngine.analyzeAST(fileContent, filePath);
-      issues.push(...astIssues);
+      issues.push(...TSEngine.analyzeAST(fileContent, filePath));
     }
 
     return issues;
   }
 
-  /**
-   * Pattern-based analysis for common accessibility issues
-   */
   private static analyzePatterns(content: string, filePath: string): A11yIssue[] {
     const issues: A11yIssue[] = [];
 
@@ -81,8 +53,7 @@ export class TSEngine {
 
       while ((match = regex.exec(content)) !== null) {
         const lineInfo = TSEngine.getLineFromIndex(content, match.index);
-        
-        const issue: A11yIssue = {
+        issues.push({
           id: pattern.rule,
           message: pattern.message,
           severity: pattern.severity,
@@ -91,18 +62,13 @@ export class TSEngine {
           column: lineInfo.column,
           source: 'typescript',
           rule: pattern.rule,
-        };
-
-        issues.push(issue);
+        });
       }
     }
 
     return issues;
   }
 
-  /**
-   * AST-based analysis for TypeScript files
-   */
   private static analyzeAST(content: string, filePath: string): A11yIssue[] {
     const issues: A11yIssue[] = [];
 
@@ -115,17 +81,18 @@ export class TSEngine {
         ts.ScriptKind.TSX
       );
 
-      // Visit all nodes in the AST
       function visit(node: ts.Node) {
-        // Check for img elements without alt prop
         if (ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node)) {
-          const tagName = node.getFirstToken()?.getText();
+          const tagName = ts.isJsxSelfClosingElement(node)
+            ? node.tagName.getText()
+            : node.openingElement.tagName.getText();
+
+          // img sans alt
           if (tagName === 'img') {
             const hasAlt = TSEngine.hasJsxAttribute(node, 'alt');
             if (!hasAlt) {
               const pos = node.getStart();
               const lineInfo = TSEngine.getLineFromIndex(content, pos);
-              
               issues.push({
                 id: 'img-missing-alt',
                 message: 'img element must have an alt attribute',
@@ -138,17 +105,13 @@ export class TSEngine {
               });
             }
           }
-        }
 
-        // Check for html element without lang
-        if (ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node)) {
-          const tagName = node.getFirstToken()?.getText();
+          // html sans lang
           if (tagName === 'html' || tagName === 'Html') {
             const hasLang = TSEngine.hasJsxAttribute(node, 'lang');
             if (!hasLang) {
               const pos = node.getStart();
               const lineInfo = TSEngine.getLineFromIndex(content, pos);
-              
               issues.push({
                 id: 'html-missing-lang',
                 message: 'html element must have a lang attribute',
@@ -158,6 +121,70 @@ export class TSEngine {
                 column: lineInfo.column,
                 source: 'typescript',
                 rule: 'html-missing-lang',
+              });
+            }
+          }
+
+          // input/textarea/select sans label
+          if (['input', 'textarea', 'select'].includes(tagName)) {
+            const hasLabel =
+              TSEngine.hasJsxAttribute(node, 'aria-label') ||
+              TSEngine.hasJsxAttribute(node, 'aria-labelledby') ||
+              TSEngine.hasJsxAttribute(node, 'id');
+            if (!hasLabel) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'input-missing-label',
+                message: 'Form inputs should have associated labels',
+                severity: 'high',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'input-missing-label',
+              });
+            }
+          }
+
+          // onClick sans onKeyDown sur éléments non natifs
+          if (!['button', 'a', 'input', 'select', 'textarea'].includes(tagName)) {
+            const hasClick = TSEngine.hasJsxAttribute(node, 'onClick');
+            const hasKeyboard =
+              TSEngine.hasJsxAttribute(node, 'onKeyDown') ||
+              TSEngine.hasJsxAttribute(node, 'onKeyUp') ||
+              TSEngine.hasJsxAttribute(node, 'onKeyPress');
+            if (hasClick && !hasKeyboard) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'interactive-no-keyboard',
+                message: 'Interactive elements should have keyboard event handlers',
+                severity: 'medium',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'interactive-no-keyboard',
+              });
+            }
+          }
+
+          // iframe sans title
+          if (tagName === 'iframe') {
+            const hasTitle = TSEngine.hasJsxAttribute(node, 'title');
+            if (!hasTitle) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'iframe-missing-title',
+                message: 'iframe must have a title attribute',
+                severity: 'high',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'iframe-missing-title',
               });
             }
           }
@@ -174,9 +201,6 @@ export class TSEngine {
     return issues;
   }
 
-  /**
-   * Check if a JSX element has a specific attribute
-   */
   private static hasJsxAttribute(node: ts.Node, attrName: string): boolean {
     if (ts.isJsxSelfClosingElement(node)) {
       return node.attributes.properties.some(
@@ -191,9 +215,6 @@ export class TSEngine {
     return false;
   }
 
-  /**
-   * Get line and column from character index
-   */
   private static getLineFromIndex(content: string, index: number): { line: number; column: number } {
     const lines = content.substring(0, index).split('\n');
     return {

@@ -16,13 +16,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       console.log('[css-a11y] Analyzing:', document.fileName, 'language:', document.languageId);
-      
       const issues = await orchestrator.run(
         document.getText(),
         document.fileName,
         document.languageId
       );
-      
       console.log('[css-a11y] Issues found:', issues.length);
       diagnosticsManager.update(document.uri, issues);
     } catch (err) {
@@ -31,7 +29,9 @@ export function activate(context: vscode.ExtensionContext) {
   }, getDebounceMs());
 
   const changeListener = vscode.workspace.onDidChangeTextDocument(event => {
-    runAnalysis(event.document);
+    if (event.contentChanges.length > 0) {
+      runAnalysis(event.document);
+    }
   });
 
   const openListener = vscode.workspace.onDidOpenTextDocument(doc => {
@@ -39,10 +39,32 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   const saveListener = vscode.workspace.onDidSaveTextDocument(doc => {
-    runAnalysis(doc);
+    runAnalysis.flush(doc);
   });
 
+  // Analyse quand on change d'onglet
+  const editorChangeListener = vscode.window.onDidChangeActiveTextEditor(editor => {
+    if (editor) {
+      runAnalysis(editor.document);
+    }
+  });
+
+  // Analyser le document actif immédiatement
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor) {
+    runAnalysis(activeEditor.document);
+  }
+
+  // Analyser tous les documents ouverts au démarrage
   vscode.workspace.textDocuments.forEach(doc => runAnalysis(doc));
+
+  // Refresh toutes les 500ms sur le document actif
+  const intervalListener = setInterval(() => {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+      runAnalysis.flush(editor.document);
+    }
+  }, 500);
 
   const commandDisposable = vscode.commands.registerCommand(
     'cssA11y.runNow',
@@ -50,7 +72,7 @@ export function activate(context: vscode.ExtensionContext) {
       const editor = vscode.window.activeTextEditor;
       if (editor) {
         console.log('[css-a11y] Manual trigger on:', editor.document.fileName);
-        runAnalysis(editor.document);
+        runAnalysis.flush(editor.document);
       }
     }
   );
@@ -59,9 +81,13 @@ export function activate(context: vscode.ExtensionContext) {
     changeListener,
     openListener,
     saveListener,
+    editorChangeListener,
     commandDisposable,
     diagnosticsManager,
-    new vscode.Disposable(() => orchestrator.dispose()),
+    new vscode.Disposable(() => {
+      clearInterval(intervalListener);
+      orchestrator.dispose();
+    }),
   );
 }
 
