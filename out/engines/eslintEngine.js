@@ -18,7 +18,8 @@ class ESLintEngine {
                     return {
                         JSXElement(node) {
                             if (node.openingElement.name.name === 'img') {
-                                const hasAlt = node.openingElement.attributes.some((attr) => attr.name && attr.name.name === 'alt');
+                                const hasAlt = node.openingElement.attributes.some((attr) => attr.type === 'JSXAttribute' &&
+                                    attr.name?.name === 'alt');
                                 if (!hasAlt) {
                                     context.report({
                                         node,
@@ -35,7 +36,7 @@ class ESLintEngine {
     }
     static async run(fileContent, filePath) {
         // Only process JSX/TSX files
-        if (!filePath.match(/\.(jsx|tsx|js|ts)$/i)) {
+        if (!filePath.match(/\.(jsx|tsx|js)$/i)) {
             console.log('[ESLintEngine] Skipping non-JSX/TSX file:', filePath);
             return [];
         }

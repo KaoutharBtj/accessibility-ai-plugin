@@ -1,0 +1,12 @@
+# Build output
+out/
+dist/
+
+# VS Code extension package
+*.vsix
+
+# dependencies
+node_modules/
+
+# logs
+*.log
