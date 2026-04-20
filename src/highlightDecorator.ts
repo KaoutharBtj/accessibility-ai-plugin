@@ -155,9 +155,7 @@ function buildHoverMessage(issue: MergedIssue): vscode.MarkdownString {
   md.appendMarkdown(`${icon} **${type}**\n\n`);
   md.appendMarkdown(`${issue.message}${sources}`);
 
-  if (fix) {
-    md.appendMarkdown(`\n\n**💡 Correction :**\n\n${fix}`);
-  }
+
 
   return md;
 }

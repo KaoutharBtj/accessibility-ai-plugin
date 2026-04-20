@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { Orchestrator } from './core/orchestrator';
 import { DiagnosticsManager } from './diagnosticsManager';
-import { A11yCodeLensProvider, updateIssuesStore, clearIssuesStore } from './a11yCodeLens';
 import { MergedIssue } from './core/deduplicationEngine';
 import { debounce } from './utils';
 import { HighlightDecorator } from './highlightDecorator';
@@ -11,21 +10,8 @@ export function activate(context: vscode.ExtensionContext) {
 
   const diagnosticsManager = new DiagnosticsManager();
   const orchestrator       = Orchestrator.getInstance();
-  const codeLensProvider   = new A11yCodeLensProvider();
   const highlightDecorator = new HighlightDecorator();
 
-  // Enregistrer le CodeLens pour tous les langages supportés
-  const codeLensDisposable = vscode.languages.registerCodeLensProvider(
-    [
-      { language: 'html' },
-      { language: 'css' },
-      { language: 'typescript' },
-      { language: 'typescriptreact' },
-      { language: 'javascript' },
-      { language: 'javascriptreact' },
-    ],
-    codeLensProvider
-  );
 
   const runAnalysis = debounce(async (document: vscode.TextDocument) => {
     if (!['html', 'css', 'javascript', 'javascriptreact', 'typescript', 'typescriptreact']
@@ -52,10 +38,6 @@ export function activate(context: vscode.ExtensionContext) {
       if (editor) {
         highlightDecorator.update(editor, issues);
       }
-
-      // 2. Stocker les issues pour CodeLens et rafraîchir
-      updateIssuesStore(document.fileName, issues);
-      codeLensProvider.refresh();
 
     } catch (err) {
       console.error('[css-a11y] Analysis error:', err);
@@ -98,8 +80,6 @@ export function activate(context: vscode.ExtensionContext) {
 
   const closeListener = vscode.workspace.onDidCloseTextDocument(doc => {
     diagnosticsManager.clear(doc.uri);
-    clearIssuesStore(doc.fileName);
-    codeLensProvider.refresh();
     // Effacer le zigzag quand le fichier se ferme
     const editor = vscode.window.visibleTextEditors.find(
       e => e.document.uri.toString() === doc.uri.toString()
@@ -119,7 +99,6 @@ export function activate(context: vscode.ExtensionContext) {
   }, 500);
 
   context.subscriptions.push(
-    codeLensDisposable,
     changeListener,
     openListener,
     saveListener,
