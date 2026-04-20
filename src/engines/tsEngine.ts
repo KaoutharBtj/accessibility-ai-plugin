@@ -81,7 +81,7 @@ export class TSEngine {
         ts.ScriptKind.TSX
       );
 
-      function visit(node: ts.Node) {
+function visit(node: ts.Node) {
         if (ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node)) {
           const tagName = ts.isJsxSelfClosingElement(node)
             ? node.tagName.getText()
@@ -188,11 +188,92 @@ export class TSEngine {
               });
             }
           }
-        }
+
+          // ✅ onMouseEnter sans onFocus — WCAG 2.1.1
+          if (!['button', 'a', 'input', 'select', 'textarea'].includes(tagName)) {
+            const hasMouseEnter = TSEngine.hasJsxAttribute(node, 'onMouseEnter');
+            const hasMouseLeave = TSEngine.hasJsxAttribute(node, 'onMouseLeave');
+            const hasFocus      = TSEngine.hasJsxAttribute(node, 'onFocus');
+            const hasBlur       = TSEngine.hasJsxAttribute(node, 'onBlur');
+
+            if (hasMouseEnter && !hasFocus) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'wcag-2.1.1-mouse-enter',
+                message: 'onMouseEnter sans onFocus — les utilisateurs clavier ne peuvent pas déclencher cet événement',
+                severity: 'high',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'wcag-2.1.1-mouse-enter',
+              });
+            }
+
+            if (hasMouseLeave && !hasBlur) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'wcag-2.1.1-mouse-leave',
+                message: 'onMouseLeave sans onBlur — les utilisateurs clavier ne peuvent pas déclencher cet événement',
+                severity: 'high',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'wcag-2.1.1-mouse-leave',
+              });
+            }
+          }
+
+          // ✅ Bouton sans type — WCAG 4.1.2
+          if (tagName === 'button') {
+            const hasType = TSEngine.hasJsxAttribute(node, 'type');
+            if (!hasType) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'wcag-4.1.2-button-type',
+                message: 'Bouton sans attribut type — ajouter type="button", type="submit" ou type="reset"',
+                severity: 'medium',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'wcag-4.1.2-button-type',
+              });
+            }
+          }
+
+          // ✅ Role interactif sans aria-label — WCAG 4.1.2
+          const interactiveRoles = ['button', 'link', 'checkbox', 'radio', 'tab', 'menuitem', 'option', 'switch'];
+          const roleAttr = TSEngine.getJsxAttributeValue(node, 'role');
+
+          if (roleAttr && interactiveRoles.includes(roleAttr)) {
+            const hasAriaLabel      = TSEngine.hasJsxAttribute(node, 'aria-label');
+            const hasAriaLabelledby = TSEngine.hasJsxAttribute(node, 'aria-labelledby');
+
+            if (!hasAriaLabel && !hasAriaLabelledby) {
+              const pos = node.getStart();
+              const lineInfo = TSEngine.getLineFromIndex(content, pos);
+              issues.push({
+                id: 'wcag-4.1.2-aria-label',
+                message: `Élément avec role="${roleAttr}" sans aria-label ou aria-labelledby`,
+                severity: 'high',
+                file: filePath,
+                line: lineInfo.line,
+                column: lineInfo.column,
+                source: 'typescript',
+                rule: 'wcag-4.1.2-aria-label',
+              });
+            }
+          }
+
+        } // ← fermeture du if isJsxElement — TOUT est à l'intérieur
 
         ts.forEachChild(node, visit);
       }
-
       visit(sourceFile);
     } catch (err) {
       console.error('[TSEngine] AST analysis error:', err);
@@ -213,6 +294,28 @@ export class TSEngine {
       );
     }
     return false;
+  }
+
+  private static getJsxAttributeValue(node: ts.Node, attrName: string): string | null {
+    let attributes: ts.NodeArray<ts.JsxAttributeLike> | null = null;
+ 
+    if (ts.isJsxSelfClosingElement(node)) {
+      attributes = node.attributes.properties;
+    } else if (ts.isJsxElement(node)) {
+      attributes = node.openingElement.attributes.properties;
+    }
+ 
+    if (!attributes) return null;
+ 
+    for (const prop of attributes) {
+      if (ts.isJsxAttribute(prop) && prop.name.getText() === attrName) {
+        if (prop.initializer && ts.isStringLiteral(prop.initializer)) {
+          return prop.initializer.text;
+        }
+      }
+    }
+ 
+    return null;
   }
 
   private static getLineFromIndex(content: string, index: number): { line: number; column: number } {

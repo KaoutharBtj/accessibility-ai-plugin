@@ -92,6 +92,108 @@ export class ESLintEngine {
           };
         },
       });
+
+      // Règle 4 — lien non explicite
+      ESLintEngine.linter.defineRule('jsx-a11y/link-vague-text', {
+        meta: {
+          type: 'problem',
+          docs: { description: 'Links must have descriptive text' },
+        },
+        create(context) {
+          return {
+            JSXElement(node: any) {
+              if (node.openingElement.name.name !== 'a') return;
+ 
+              const vagueTexts = [
+                'clique ici', 'cliquez ici', 'ici', 'lire plus',
+                'lire la suite', 'en savoir plus', 'click here',
+                'here', 'read more', 'more', 'suite', 'voir',
+              ];
+ 
+              const getText = (n: any): string => {
+                if (!n.children) return '';
+                return n.children
+                  .map((c: any) => {
+                    if (c.type === 'JSXText') return c.value;
+                    if (c.type === 'JSXElement') return getText(c);
+                    return '';
+                  })
+                  .join('')
+                  .trim()
+                  .toLowerCase();
+              };
+ 
+              const text = getText(node);
+              if (vagueTexts.includes(text)) {
+                context.report({
+                  node,
+                  message: `Lien non explicite : "${text}" n'est pas descriptif`,
+                });
+              }
+            },
+          };
+        },
+      });
+
+
+      // Règle 5 — bouton sans type
+      ESLintEngine.linter.defineRule('jsx-a11y/button-has-type', {
+        meta: {
+          type: 'problem',
+          docs: { description: 'Button must have explicit type' },
+        },
+        create(context) {
+          return {
+            JSXElement(node: any) {
+              if (node.openingElement.name.name !== 'button') return;
+              const attrs = node.openingElement.attributes;
+              const hasType = attrs.some((a: any) => a.name?.name === 'type');
+              if (!hasType) {
+                context.report({
+                  node,
+                  message: 'Bouton sans attribut type — ajouter type="button", "submit" ou "reset"',
+                });
+              }
+            },
+          };
+        },
+      });
+
+      // Règle 6 — onMouseEnter sans onFocus
+      ESLintEngine.linter.defineRule('jsx-a11y/mouse-events-have-key-events', {
+        meta: {
+          type: 'suggestion',
+          docs: { description: 'Mouse events must have keyboard equivalents' },
+        },
+        create(context) {
+          return {
+            JSXElement(node: any) {
+              const attrs = node.openingElement.attributes;
+              const tagName = node.openingElement.name.name;
+              const isNative = ['button', 'a', 'input', 'select', 'textarea'].includes(tagName);
+              if (isNative) return;
+
+              const hasMouseEnter = attrs.some((a: any) => a.name?.name === 'onMouseEnter');
+              const hasMouseLeave = attrs.some((a: any) => a.name?.name === 'onMouseLeave');
+              const hasFocus      = attrs.some((a: any) => a.name?.name === 'onFocus');
+              const hasBlur       = attrs.some((a: any) => a.name?.name === 'onBlur');
+
+              if (hasMouseEnter && !hasFocus) {
+                context.report({
+                  node,
+                  message: 'onMouseEnter sans onFocus — inaccessible au clavier',
+                });
+              }
+              if (hasMouseLeave && !hasBlur) {
+                context.report({
+                  node,
+                  message: 'onMouseLeave sans onBlur — inaccessible au clavier',
+                });
+              }
+            },
+          };
+        },
+      });
     }
     return ESLintEngine.linter;
   }
@@ -116,9 +218,12 @@ export class ESLintEngine {
           ecmaFeatures: { jsx: true },
         },
         rules: {
-          'jsx-a11y/alt-text': 'error',
-          'jsx-a11y/input-missing-label': 'error',
-          'jsx-a11y/interactive-no-keyboard': 'warn',
+          'jsx-a11y/alt-text':                    'error',
+          'jsx-a11y/input-missing-label':         'error',
+          'jsx-a11y/interactive-no-keyboard':     'warn',
+          'jsx-a11y/link-vague-text':             'error',
+          'jsx-a11y/button-has-type':             'warn',
+          'jsx-a11y/mouse-events-have-key-events':'warn', 
         },
       }, filePath);
 

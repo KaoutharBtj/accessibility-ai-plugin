@@ -27,92 +27,31 @@ export class RgaaEngine {
     issues.push(...RgaaEngine.checkTables(cleanContent, filePath));
     issues.push(...RgaaEngine.checkHtmlSyntax(cleanContent, filePath));
     issues.push(...RgaaEngine.checkLandmarks(cleanContent, filePath));
+    issues.push(...RgaaEngine.checkLinkTexts(cleanContent, filePath));
+    issues.push(...RgaaEngine.checkButtonTypes(cleanContent, filePath));
+    issues.push(...RgaaEngine.checkTableHeaders(cleanContent, filePath));
+    issues.push(...RgaaEngine.checkAriaLabels(cleanContent, filePath));
+    issues.push(...RgaaEngine.checkLandmarksComplete(cleanContent, filePath));
 
     console.log('[RgaaEngine] Found', issues.length, 'RGAA issues');
     return issues;
   }
-public static async runCss(
-    fileContent: string,
-    filePath: string
-  ): Promise<A11yIssue[]> {
-    if (!filePath.match(/\.css$/i)) {
-      return [];
-    }
-
-    const issues: A11yIssue[] = [];
-    console.log('[RgaaEngine] Running CSS analysis on:', filePath);
-
-    // outline:none — supprime le focus visible
-    const outlineNone = /outline\s*:\s*(?:none|0)/gi;
-    let match;
-    while ((match = outlineNone.exec(fileContent)) !== null) {
-      const lineInfo = RgaaEngine.getLineFromIndex(fileContent, match.index);
-      issues.push({
-        id: 'css-outline-none',
-        message: '[CSS A11y] outline:none supprime l\'indicateur de focus clavier',
-        severity: 'high',
-        file: filePath,
-        line: lineInfo.line,
-        column: lineInfo.column,
-        source: 'rgaa',
-        rule: 'css-outline-none',
-      });
-    }
-
-    // font-size trop petit
-    const smallFont = /font-size\s*:\s*([0-9]+)px/gi;
-    while ((match = smallFont.exec(fileContent)) !== null) {
-      const size = parseInt(match[1]);
-      if (size < 10) {
-        const lineInfo = RgaaEngine.getLineFromIndex(fileContent, match.index);
-        issues.push({
-          id: 'css-font-too-small',
-          message: `[CSS A11y] Taille de police trop petite: ${size}px — minimum recommandé 12px`,
-          severity: 'medium',
-          file: filePath,
-          line: lineInfo.line,
-          column: lineInfo.column,
-          source: 'rgaa',
-          rule: 'css-font-too-small',
-        });
+  public static async runCss(
+      fileContent: string,
+      filePath: string
+    ): Promise<A11yIssue[]> {
+      if (!filePath.match(/\.css$/i)) {
+        return [];
       }
+      console.log('[RgaaEngine] Running CSS analysis on:', filePath);
+  
+      // Déléguer au moteur CSS dédié
+      const { analyzeCSS } = require('./cssAnalyzer');
+      const issues = analyzeCSS(fileContent, filePath);
+  
+      console.log('[RgaaEngine] CSS issues found:', issues.length);
+      return issues;
     }
-
-    // visibility:hidden ou display:none
-    const hiddenContent = /(?:visibility\s*:\s*hidden|display\s*:\s*none)/gi;
-    while ((match = hiddenContent.exec(fileContent)) !== null) {
-      const lineInfo = RgaaEngine.getLineFromIndex(fileContent, match.index);
-      issues.push({
-        id: 'css-hidden-content',
-        message: '[CSS A11y] Contenu masqué — vérifier que ce n\'est pas du contenu accessible',
-        severity: 'low',
-        file: filePath,
-        line: lineInfo.line,
-        column: lineInfo.column,
-        source: 'rgaa',
-        rule: 'css-hidden-content',
-      });
-    }
-
-    // color sans background-color dans le même bloc
-    const colorWithoutBg = /(?<![/-])\bcolor\s*:\s*[^;]+;(?![^}]*background(?:-color)?)/gi;
-    while ((match = colorWithoutBg.exec(fileContent)) !== null) {
-      const lineInfo = RgaaEngine.getLineFromIndex(fileContent, match.index);
-      issues.push({
-        id: 'css-color-no-background',
-        message: '[CSS A11y] Couleur définie sans background-color — risque de contraste insuffisant',
-        severity: 'low',
-        file: filePath,
-        line: lineInfo.line,
-        column: lineInfo.column,
-        source: 'rgaa',
-        rule: 'css-color-no-background',
-      });
-    }
-
-    console.log('[RgaaEngine] CSS issues found:', issues.length);
-    return issues;
-  }
   
 
   private static removeComments(content: string): string {
@@ -489,4 +428,199 @@ public static async runCss(
       column: lines[lines.length - 1].length + 1,
     };
   }
+
+  private static checkLinkTexts(content: string, filePath: string): A11yIssue[] {
+    const issues: A11yIssue[] = [];
+
+    const vagueTexts = ['clique ici', 'cliquez ici', 'ici', 'lire plus', 'lire la suite',
+      'en savoir plus', 'click here', 'here', 'read more', 'more', 'suite', 'voir'];
+
+    const linkPattern = /<a[^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+
+    while ((match = linkPattern.exec(content)) !== null) {
+      const linkText = match[1]
+        .replace(/<[^>]*>/g, '')
+        .trim()
+        .toLowerCase();
+
+      if (vagueTexts.includes(linkText)) {
+        const lineInfo = RgaaEngine.getLineFromIndex(content, match.index);
+        issues.push({
+          id: 'rgaa-6.1',
+          message: `[RGAA 6.1] Lien non explicite : texte "${linkText}" n'est pas descriptif`,
+          severity: 'high',
+          file: filePath,
+          line: lineInfo.line,
+          column: lineInfo.column,
+          source: 'rgaa',
+          rule: 'rgaa-6.1',
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  // 2. Bouton sans type — RGAA 11.9
+  private static checkButtonTypes(content: string, filePath: string): A11yIssue[] {
+    const issues: A11yIssue[] = [];
+
+    const buttonWithoutType = /<button(?![^>]*\btype=)[^>]*>/gi;
+    let match;
+
+    while ((match = buttonWithoutType.exec(content)) !== null) {
+      const lineInfo = RgaaEngine.getLineFromIndex(content, match.index);
+      issues.push({
+        id: 'rgaa-11.9',
+        message: '[RGAA 11.9] Bouton sans attribut type (type="button|submit|reset" manquant)',
+        severity: 'medium',
+        file: filePath,
+        line: lineInfo.line,
+        column: lineInfo.column,
+        source: 'rgaa',
+        rule: 'rgaa-11.9',
+      });
+    }
+
+    return issues;
+  }
+
+  // 3. Tableau sans en-têtes — RGAA 5.6 / 5.7
+  private static checkTableHeaders(content: string, filePath: string): A11yIssue[] {
+    const issues: A11yIssue[] = [];
+
+    const tablePattern = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+    let match;
+
+    while ((match = tablePattern.exec(content)) !== null) {
+      const tableContent = match[1];
+      const hasTh = /<th[\s>]/i.test(tableContent);
+      const hasScope = /\bscope=/i.test(tableContent);
+      const hasHeaders = /\bheaders=/i.test(tableContent);
+
+      if (!hasTh && !hasScope && !hasHeaders) {
+        const lineInfo = RgaaEngine.getLineFromIndex(content, match.index);
+        issues.push({
+          id: 'rgaa-5.6',
+          message: '[RGAA 5.6] Tableau sans en-têtes (<th> ou attribut scope manquant)',
+          severity: 'high',
+          file: filePath,
+          line: lineInfo.line,
+          column: lineInfo.column,
+          source: 'rgaa',
+          rule: 'rgaa-5.6',
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  // 4. ARIA manquant sur éléments interactifs — RGAA 7.1
+  private static checkAriaLabels(content: string, filePath: string): A11yIssue[] {
+    const issues: A11yIssue[] = [];
+
+    // Éléments avec role interactif sans aria-label ni aria-labelledby
+    const interactiveRoles = /<(?:div|span)[^>]*\brole=["'](?:button|link|checkbox|radio|tab|menuitem|option)[^"']*["'](?![^>]*\b(?:aria-label|aria-labelledby))[^>]*>/gi;
+    let match;
+
+    while ((match = interactiveRoles.exec(content)) !== null) {
+      const lineInfo = RgaaEngine.getLineFromIndex(content, match.index);
+      issues.push({
+        id: 'rgaa-7.1',
+        message: '[RGAA 7.1] Élément interactif avec role ARIA sans aria-label ou aria-labelledby',
+        severity: 'high',
+        file: filePath,
+        line: lineInfo.line,
+        column: lineInfo.column,
+        source: 'rgaa',
+        rule: 'rgaa-7.1',
+      });
+    }
+
+    // Bouton avec uniquement une image sans aria-label
+    const buttonWithImgOnly = /<button(?![^>]*\b(?:aria-label|aria-labelledby))[^>]*>\s*<img[^>]*>\s*<\/button>/gi;
+    while ((match = buttonWithImgOnly.exec(content)) !== null) {
+      const lineInfo = RgaaEngine.getLineFromIndex(content, match.index);
+      issues.push({
+        id: 'rgaa-7.1',
+        message: '[RGAA 7.1] Bouton contenant uniquement une image sans aria-label',
+        severity: 'high',
+        file: filePath,
+        line: lineInfo.line,
+        column: lineInfo.column,
+        source: 'rgaa',
+        rule: 'rgaa-7.1',
+      });
+    }
+
+    return issues;
+  }
+
+  // 5. Landmarks incomplets — RGAA 12.6
+  private static checkLandmarksComplete(content: string, filePath: string): A11yIssue[] {
+    const issues: A11yIssue[] = [];
+
+    if (!content.includes('<body')) return issues;
+
+    const hasHeader  = /<header[^>]*>/i.test(content) || /role=["']banner["']/i.test(content);
+    const hasNav     = /<nav[^>]*>/i.test(content) || /role=["']navigation["']/i.test(content);
+    const hasMain    = /<main[^>]*>/i.test(content) || /role=["']main["']/i.test(content);
+    const hasFooter  = /<footer[^>]*>/i.test(content) || /role=["']contentinfo["']/i.test(content);
+
+    if (!hasHeader) {
+      issues.push({
+        id: 'rgaa-12.6',
+        message: '[RGAA 12.6] Landmark <header> (banner) manquant — obligatoire pour la navigation',
+        severity: 'medium',
+        file: filePath,
+        line: 1,
+        column: 1,
+        source: 'rgaa',
+        rule: 'rgaa-12.6',
+      });
+    }
+
+    if (!hasNav) {
+      issues.push({
+        id: 'rgaa-12.6',
+        message: '[RGAA 12.6] Landmark <nav> (navigation) manquant — obligatoire pour la navigation',
+        severity: 'medium',
+        file: filePath,
+        line: 1,
+        column: 1,
+        source: 'rgaa',
+        rule: 'rgaa-12.6',
+      });
+    }
+
+    if (!hasMain) {
+      issues.push({
+        id: 'rgaa-12.6',
+        message: '[RGAA 12.6] Landmark <main> manquant — obligatoire pour la structure',
+        severity: 'high',
+        file: filePath,
+        line: 1,
+        column: 1,
+        source: 'rgaa',
+        rule: 'rgaa-12.6',
+      });
+    }
+
+    if (!hasFooter) {
+      issues.push({
+        id: 'rgaa-12.6',
+        message: '[RGAA 12.6] Landmark <footer> (contentinfo) manquant — recommandé',
+        severity: 'low',
+        file: filePath,
+        line: 1,
+        column: 1,
+        source: 'rgaa',
+        rule: 'rgaa-12.6',
+      });
+    }
+    return issues;
+  }
+
 }
