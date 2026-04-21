@@ -97,7 +97,6 @@ const CONSOLIDATED_MESSAGES: Record<string, string> = {
   BUTTON_MISSING_TYPE:    'Bouton sans attribut type',
   ARIA_MISSING_LABEL:     'Élément interactif sans aria-label ou aria-labelledby',
   PAGE_MISSING_TITLE:     'Page sans titre (<title> manquant)',
-  COLOR_CONTRAST:         'Contraste de couleurs insuffisant',
   FOCUS_NOT_VISIBLE:      'Indicateur de focus supprimé (outline:none)',
   TABLE_MISSING_HEADERS:  'Tableau sans en-têtes (<th> ou scope manquant)',
   CSS_FONT_TOO_SMALL:       'Taille de police trop petite (< 12px)',
@@ -106,7 +105,6 @@ const CONSOLIDATED_MESSAGES: Record<string, string> = {
 };
 
 export interface MergedIssue extends A11yIssue {
-  sources: string[];
   normalizedType: string;
   occurrences: number;
 }
@@ -128,19 +126,13 @@ export class DeduplicationEngine {
         map.set(key, {
           ...issue,
           id: normalizedType,
-          message: CONSOLIDATED_MESSAGES[normalizedType] || issue.message,
-          sources: [this.formatSource(issue)],
+          message: `${CONSOLIDATED_MESSAGES[normalizedType] || issue.message}${issue.message ? ` — ${issue.message}` : ''}`,
           normalizedType,
           occurrences: 1,
         });
       } else {
         // Doublon détecté — merger avec l'existant
         const existing = map.get(key)!;
-
-        const source = this.formatSource(issue);
-        if (!existing.sources.includes(source)) {
-          existing.sources.push(source);
-        }
 
         // Garder la severity la plus haute
         if (this.severityPriority(issue.severity) > this.severityPriority(existing.severity)) {
@@ -179,7 +171,6 @@ export class DeduplicationEngine {
    */
   private static formatSource(issue: A11yIssue): string {
     const rule = issue.rule || issue.id;
-    const engine = issue.source;
 
     const engineLabels: Record<string, string> = {
       rgaa:       'RGAA',
@@ -188,8 +179,7 @@ export class DeduplicationEngine {
       axe:        'axe-core',
     };
 
-    const label = engineLabels[engine] || engine.toUpperCase();
-    return `${label}:${rule}`;
+    return `${rule}`;
   }
 
   /**

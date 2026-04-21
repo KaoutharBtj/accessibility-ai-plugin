@@ -244,7 +244,6 @@ export class ESLintEngine {
         file: filePath,
         line: msg.line,
         column: msg.column,
-        source: 'eslint',
         rule: msg.ruleId ?? undefined,
       });
     }

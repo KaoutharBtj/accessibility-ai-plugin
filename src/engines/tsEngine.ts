@@ -60,7 +60,6 @@ export class TSEngine {
           file: filePath,
           line: lineInfo.line,
           column: lineInfo.column,
-          source: 'typescript',
           rule: pattern.rule,
         });
       }
@@ -100,7 +99,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'img-missing-alt',
               });
             }
@@ -119,7 +117,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'html-missing-lang',
               });
             }
@@ -141,7 +138,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'input-missing-label',
               });
             }
@@ -164,7 +160,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'interactive-no-keyboard',
               });
             }
@@ -183,7 +178,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'iframe-missing-title',
               });
             }
@@ -206,7 +200,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'wcag-2.1.1-mouse-enter',
               });
             }
@@ -221,7 +214,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'wcag-2.1.1-mouse-leave',
               });
             }
@@ -240,7 +232,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'wcag-4.1.2-button-type',
               });
             }
@@ -264,7 +255,6 @@ function visit(node: ts.Node) {
                 file: filePath,
                 line: lineInfo.line,
                 column: lineInfo.column,
-                source: 'typescript',
                 rule: 'wcag-4.1.2-aria-label',
               });
             }

@@ -35,7 +35,7 @@ export class AxeEngine {
   public static async run(
     htmlContent: string,
     cssContent: string = '',
-    enabledRules: string[] = ['color-contrast', 'color-contrast-enhanced', 'link-in-text-block']
+    enabledRules: string[] = ['link-in-text-block']
   ): Promise<A11yIssue[]> {
     const browser = await AxeEngine.getBrowser();
     const page = await browser.newPage();
@@ -75,8 +75,6 @@ export class AxeEngine {
     enabledRules: string[]
   ): { [key: string]: { enabled: boolean } } {
     const allCssRules = [
-      'color-contrast',
-      'color-contrast-enhanced',
       'link-in-text-block',
       'scrollable-region-focusable',
       'region',
@@ -107,7 +105,6 @@ export class AxeEngine {
           message: AxeEngine.buildMessage(v, node),
           severity,
           file,
-          source: 'axe',
           rule: v.id,
         };
 
@@ -116,15 +113,6 @@ export class AxeEngine {
           const targetStr = node.target[0]?.toString();
           if (targetStr) {
             issue.message += `\n  • Selector: ${targetStr}`;
-          }
-        }
-
-        // Add contrast data if applicable
-        if (v.id === 'color-contrast' || v.id === 'color-contrast-enhanced') {
-          const contrastData = AxeEngine.extractContrastData(node);
-          if (contrastData) {
-            issue.message += `\n  • Contrast: ${contrastData.contrastRatio.toFixed(2)}:1 (required ≥ ${contrastData.expectedRatio}:1)`;
-            issue.message += `\n  • FG: ${contrastData.fgColor} | BG: ${contrastData.bgColor}`;
           }
         }
 
@@ -150,21 +138,4 @@ export class AxeEngine {
     return `[${(node.impact ?? v.impact ?? 'moderate').toUpperCase()}] ${v.help} (${wcag})`;
   }
 
-  private static extractContrastData(node: axe.NodeResult): ContrastData | undefined {
-    const anyChecks = [...(node.any || []), ...(node.all || [])];
-
-    for (const check of anyChecks) {
-      if (check.id === 'color-contrast' && check.data) {
-        const d = check.data as any;
-        return {
-          fgColor: d.fgColor ?? 'unknown',
-          bgColor: d.bgColor ?? 'unknown',
-          contrastRatio: d.contrastRatio ?? 0,
-          expectedRatio: d.expectedContrastRatio ?? 4.5,
-        };
-      }
-    }
-
-    return undefined;
-  }
 }

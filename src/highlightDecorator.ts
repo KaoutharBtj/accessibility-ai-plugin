@@ -145,15 +145,11 @@ function buildHoverMessage(issue: MergedIssue): vscode.MarkdownString {
   const icon    = icons[issue.severity] || '⚠️';
   const type    = issue.normalizedType || issue.id;
   const fix     = fixes[type];
-  const sources = issue.sources?.length
-    ? `\n\n*Détecté par : ${issue.sources.join(' · ')}*`
-    : '';
 
   const md = new vscode.MarkdownString('', true);
   md.isTrusted = true;
 
   md.appendMarkdown(`${icon} **${type}**\n\n`);
-  md.appendMarkdown(`${issue.message}${sources}`);
 
 
 

@@ -76,7 +76,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-1.1',
       });
     }
@@ -96,7 +95,6 @@ export class RgaaEngine {
           file: filePath,
           line: lineInfo.line,
           column: lineInfo.column,
-          source: 'rgaa',
           rule: 'rgaa-1.2',
         });
       }
@@ -119,7 +117,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-2.1',
       });
     }
@@ -145,7 +142,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-8.3',
       });
     }
@@ -159,7 +155,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-8.5',
       });
     }
@@ -180,7 +175,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-8.9',
       });
     }
@@ -210,7 +204,7 @@ export class RgaaEngine {
             file: filePath,
             line: lineInfo.line,
             column: lineInfo.column,
-            source: 'rgaa',
+
             rule: 'rgaa-9.1',
           });
         }
@@ -226,7 +220,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-9.1',
       });
     }
@@ -248,7 +241,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-6.2',
       });
     }
@@ -276,7 +268,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-11.1',
       });
     }
@@ -298,7 +289,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-7.3',
       });
     }
@@ -320,7 +310,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-5.4',
       });
     }
@@ -334,7 +323,7 @@ export class RgaaEngine {
     const tagStack: { tag: string; line: number; column: number }[] = [];
     const tagPattern = /<(\/?)([\w]+)[^>]*>/gi;
     let tagMatch;
-    const voidElements = ['img','br','hr','input','meta','link','area','base','col','embed','param','source','track','wbr'];
+    const voidElements = ['img','br','hr','input','meta','link','area','base','col','embed','param','track','wbr'];
 
     while ((tagMatch = tagPattern.exec(content)) !== null) {
       const isClosing = tagMatch[1] === '/';
@@ -359,7 +348,6 @@ export class RgaaEngine {
           file: filePath,
           line: unclosed.line,
           column: unclosed.column,
-          source: 'rgaa',
           rule: 'html-syntax-2',
         });
       }
@@ -377,7 +365,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'html-syntax-3',
       });
     }
@@ -397,7 +384,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'landmark-1',
       });
     }
@@ -413,7 +399,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'landmark-2',
       });
     }
@@ -453,7 +438,6 @@ export class RgaaEngine {
           file: filePath,
           line: lineInfo.line,
           column: lineInfo.column,
-          source: 'rgaa',
           rule: 'rgaa-6.1',
         });
       }
@@ -478,7 +462,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-11.9',
       });
     }
@@ -508,7 +491,6 @@ export class RgaaEngine {
           file: filePath,
           line: lineInfo.line,
           column: lineInfo.column,
-          source: 'rgaa',
           rule: 'rgaa-5.6',
         });
       }
@@ -534,7 +516,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-7.1',
       });
     }
@@ -550,7 +531,6 @@ export class RgaaEngine {
         file: filePath,
         line: lineInfo.line,
         column: lineInfo.column,
-        source: 'rgaa',
         rule: 'rgaa-7.1',
       });
     }
@@ -577,7 +557,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-12.6',
       });
     }
@@ -590,7 +569,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-12.6',
       });
     }
@@ -603,7 +581,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-12.6',
       });
     }
@@ -616,7 +593,6 @@ export class RgaaEngine {
         file: filePath,
         line: 1,
         column: 1,
-        source: 'rgaa',
         rule: 'rgaa-12.6',
       });
     }

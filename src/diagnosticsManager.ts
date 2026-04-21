@@ -38,29 +38,30 @@ export class DiagnosticsManager implements vscode.Disposable {
 
     const range = this.resolveRange(uri, issue);
 
-    // Message enrichi avec les sources
-    const sourcesLabel = issue.sources && issue.sources.length > 1
-      ? `\n[Sources: ${issue.sources.join(', ')}]`
-      : '';
+
 
     const occurrencesLabel = issue.occurrences > 1
       ? ` (détecté par ${issue.occurrences} moteurs)`
       : '';
 
-    const fullMessage = `[${issue.normalizedType || issue.id}] ${issue.message}${occurrencesLabel}${sourcesLabel}`;
+const fullMessage = issue.message;
 
-    const diagnostic = new vscode.Diagnostic(
-      range,
-      fullMessage,
-      SEVERITY_TO_VSCODE[issue.severity] ?? vscode.DiagnosticSeverity.Warning
-    );
+const diagnostic = new vscode.Diagnostic(
+  range,
+  fullMessage,
+  SEVERITY_TO_VSCODE[issue.severity] ?? vscode.DiagnosticSeverity.Warning
+);
 
-    diagnostic.source = `a11y-${issue.source}`;
-    diagnostic.code   = issue.normalizedType || issue.rule;
+diagnostic.code = issue.normalizedType || issue.rule;
 
-    if (issue.severity === 'low') {
-      diagnostic.tags = [vscode.DiagnosticTag.Unnecessary];
-    }
+if (issue.occurrences > 1) {
+  diagnostic.relatedInformation = [
+    new vscode.DiagnosticRelatedInformation(
+      new vscode.Location(uri, range),
+      `Détecté par ${issue.occurrences} moteurs`
+    )
+  ];
+}
 
     return diagnostic;
   }

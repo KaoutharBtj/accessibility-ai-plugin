@@ -157,9 +157,6 @@ function showIssuePanel(
       ? `<div class="fix"><div class="fix-label">💡 Correction suggérée</div><pre>${fix}</pre></div>`
       : '';
 
-    const sourcesHtml = issue.sources?.length
-      ? `<div class="sources">Détecté par : ${issue.sources.map(s => `<span class="badge">${s}</span>`).join(' ')}</div>`
-      : '';
 
     return `
       <div class="issue ${issue.severity}">
@@ -168,7 +165,6 @@ function showIssuePanel(
           <span class="type">${issue.normalizedType || issue.id}</span>
         </div>
         <div class="message">${issue.message}</div>
-        ${sourcesHtml}
         ${fixBlock}
       </div>
     `;

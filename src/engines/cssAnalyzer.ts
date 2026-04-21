@@ -105,7 +105,6 @@ function checkFontSize(content: string, filePath: string): A11yIssue[] {
         file:     filePath,
         line,
         column,
-        source:   'rgaa',
       });
     }
   }
@@ -144,7 +143,6 @@ function checkColorContrast(content: string, filePath: string): A11yIssue[] {
           file:     filePath,
           line,
           column,
-          source:   'rgaa',
         });
       }
     } else if (colorMatch && !bgMatch) {
@@ -158,7 +156,6 @@ function checkColorContrast(content: string, filePath: string): A11yIssue[] {
         file:     filePath,
         line,
         column,
-        source:   'rgaa',
       });
     }
   }
@@ -215,7 +212,6 @@ function checkHoverWithoutFocus(content: string, filePath: string): A11yIssue[] 
         file:     filePath,
         line,
         column,
-        source:   'rgaa',
       });
     }
   }
@@ -251,7 +247,6 @@ function checkInfiniteAnimation(content: string, filePath: string): A11yIssue[] 
         file:     filePath,
         line,
         column,
-        source:   'rgaa',
       });
     }
   }
@@ -269,7 +264,6 @@ function checkInfiniteAnimation(content: string, filePath: string): A11yIssue[] 
         file:     filePath,
         line,
         column,
-        source:   'rgaa',
       });
     }
   }
@@ -304,7 +298,6 @@ function checkOutlineNone(content: string, filePath: string): A11yIssue[] {
       file:     filePath,
       line,
       column,
-      source:   'rgaa',
     });
   }
 
@@ -330,7 +323,6 @@ function checkHiddenContent(content: string, filePath: string): A11yIssue[] {
       file:     filePath,
       line,
       column,
-      source:   'rgaa',
     });
   }
 
