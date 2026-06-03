@@ -1,9 +1,12 @@
+import * as vscode from 'vscode';
 import { A11yIssue } from './types';
-import { AxeEngine } from '../engines/axeEngine';
+import { AxeEngine, AxeEngineResult } from '../engines/axeEngine';
 import { ESLintEngine } from '../engines/eslintEngine';
 import { TSEngine } from '../engines/tsEngine';
 import { RgaaEngine } from '../engines/rgaaEngine';
 import { DeduplicationEngine, MergedIssue } from './deduplicationEngine';
+import { ValidationEngine, ValidationContext } from './validationEngine';
+import { resolveCssForHtml } from '../cssResolver';
 
 
 function globalDeduplication(issues: A11yIssue[]): A11yIssue[] {
@@ -74,14 +77,16 @@ export class Orchestrator {
   }
 
   public async run(
-    fileContent: string,
-    filePath: string,
-    languageId: string
+    document: vscode.TextDocument
   ): Promise<MergedIssue[]> {
+    const fileContent = document.getText();
+    const filePath = document.fileName;
+    const languageId = document.languageId;
+
     console.log('[Orchestrator] Starting analysis for:', filePath, 'language:', languageId);
 
     // 1. Collecter toutes les issues brutes de tous les engines
-    const rawIssues = await this.runEngines(fileContent, filePath, languageId);
+    const rawIssues = await this.runEngines(document, fileContent, filePath, languageId);
     console.log('[Orchestrator] Raw issues before dedup:', rawIssues.length);
 
     // 2. Dédupliquer et merger intelligemment
@@ -98,15 +103,24 @@ export class Orchestrator {
   }
 
  private async runEngines(
+    document: vscode.TextDocument,
     fileContent: string,
     filePath: string,
     languageId: string
   ): Promise<A11yIssue[]> {
     const enginePromises: { name: string; promise: Promise<A11yIssue[]> }[] = [];
+    let axeResult: AxeEngineResult | null = null;
 
     if (languageId === 'html') {
+      // For HTML, use enhanced AxeEngine with validation layer
+      try {
+        axeResult = await this.runAxeWithContext(document, fileContent, filePath);
+      } catch (err) {
+        console.error('[Orchestrator] Axe engine with validation failed:', err);
+      }
+
+      // Fallback to RGAA if Axe fails
       enginePromises.push(
-        { name: 'AxeEngine',  promise: this.runAxe(fileContent, filePath) },
         { name: 'RgaaEngine', promise: RgaaEngine.run(fileContent, filePath) }
       );
     } else if (languageId === 'css') {
@@ -139,13 +153,62 @@ export class Orchestrator {
     return globalDeduplication(allIssues);
   }
 
-  private async runAxe(htmlContent: string, filePath: string): Promise<A11yIssue[]> {
+  /**
+   * Run Axe with validation layer to filter false positives
+   */
+  private async runAxeWithContext(
+    document: vscode.TextDocument,
+    htmlContent: string,
+    filePath: string
+  ): Promise<AxeEngineResult> {
     try {
-      return await AxeEngine.run(htmlContent, '', [
-        'color-contrast',
-        'color-contrast-enhanced',
+      const cssContent = await resolveCssForHtml(document, htmlContent);
+
+      // Run axe-core with full context (computed styles, focus styles)
+      const axeResult = await AxeEngine.runWithContext(htmlContent, cssContent, [
         'link-in-text-block',
         'scrollable-region-focusable',
+        'region',
+        'landmark-one-main',
+      ]);
+
+      console.log('[Orchestrator] Raw axe violations:', axeResult.violations.length);
+      console.log('[Orchestrator] Computed styles available:', axeResult.computedStyles.size);
+
+      // Create validation context
+      const validationContext: ValidationContext = {
+        computedStyles: axeResult.computedStyles,
+        axeViolations: axeResult.violations,
+        otherViolations: [], // Add other violations if needed
+        focusStyles: axeResult.focusStyles,
+      };
+
+      // Validate and filter false positives
+      const validatedViolations = ValidationEngine.validate(validationContext);
+      console.log('[Orchestrator] Violations after validation:', validatedViolations.length);
+
+      return {
+        ...axeResult,
+        violations: validatedViolations,
+      };
+    } catch (err) {
+      console.error('[Orchestrator] Axe validation failed:', err);
+      throw err;
+    }
+  }
+
+  private async runAxe(
+    document: vscode.TextDocument,
+    htmlContent: string,
+    filePath: string
+  ): Promise<A11yIssue[]> {
+    try {
+      const cssContent = await resolveCssForHtml(document, htmlContent);
+      return await AxeEngine.run(htmlContent, cssContent, [
+        'link-in-text-block',
+        'scrollable-region-focusable',
+        'region',
+        'landmark-one-main',
       ]);
     } catch (err) {
       console.error('[Orchestrator] Axe engine error:', err);

@@ -22,11 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
     try {
       console.log('[css-a11y] Analyzing:', document.fileName);
 
-      const issues = await orchestrator.run(
-        document.getText(),
-        document.fileName,
-        document.languageId
-      );
+      const issues = await orchestrator.run(document);
 
       console.log('[css-a11y] Issues found:', issues.length);
 
