@@ -941,6 +941,7 @@ export class RgaaEngine {
         parseInt(color.slice(5, 7), 16),
       ];
     }
+
     // rgb(r,g,b)
     const rgbMatch = color.match(/^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/i);
     if (rgbMatch) {

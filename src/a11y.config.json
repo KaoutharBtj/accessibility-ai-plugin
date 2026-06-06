@@ -1,0 +1,19 @@
+{
+  "ai": {
+      "enabled": true,
+      "provider": "ollama",
+      "model": "codellama",
+      "apiKey": ""
+  },
+  "rules": {
+      "rgaa": true,
+      "wcag": "AA",
+      "eslint": true
+  },
+  "ignore": [
+      "node_modules",
+      "dist",
+      "*.test.tsx",
+      "*.spec.ts"
+  ]
+}

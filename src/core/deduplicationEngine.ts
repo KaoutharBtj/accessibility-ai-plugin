@@ -105,6 +105,7 @@ const CONSOLIDATED_MESSAGES: Record<string, string> = {
 };
 
 export interface MergedIssue extends A11yIssue {
+  sources: string[]; 
   normalizedType: string;
   occurrences: number;
 }
@@ -128,6 +129,7 @@ export class DeduplicationEngine {
           id: normalizedType,
           message: `${CONSOLIDATED_MESSAGES[normalizedType] || issue.message}${issue.message ? ` — ${issue.message}` : ''}`,
           normalizedType,
+          sources: [this.formatSource(issue)],
           occurrences: 1,
         });
       } else {
