@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+﻿import * as vscode from 'vscode';
 import { Orchestrator } from './core/orchestrator';
 import { DiagnosticsManager } from './diagnosticsManager';
 import { MergedIssue } from './core/deduplicationEngine';
@@ -260,32 +260,32 @@ function showIssuePanel(
   }).join('');
 
   panel.webview.html = `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<style>
-  body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 16px; margin: 0; }
-  h2 { font-size: 15px; font-weight: 500; margin: 0 0 16px; }
-  .file { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
-  .issue { border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
-  .issue.critical, .issue.high { border-left: 3px solid var(--vscode-errorForeground); }
-  .issue.medium { border-left: 3px solid var(--vscode-editorWarning-foreground); }
-  .issue.low { border-left: 3px solid var(--vscode-editorInfo-foreground); }
-  .issue-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .severity { font-size: 12px; font-weight: 500; }
-  .type { font-size: 11px; font-family: var(--vscode-editor-font-family); background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); padding: 2px 6px; border-radius: 4px; }
-  .message { font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
-  .fix { margin-top: 10px; }
-  .fix-label { font-size: 12px; font-weight: 500; margin-bottom: 6px; }
-  pre { background: var(--vscode-textCodeBlock-background); border-radius: 4px; padding: 10px; font-family: var(--vscode-editor-font-family); font-size: 12px; overflow-x: auto; margin: 0; white-space: pre-wrap; }
-</style>
-</head>
-<body>
-  <h2>♿ Problèmes d'accessibilité — ligne ${line + 1}</h2>
-  <div class="file">${fileName}</div>
-  ${issuesHtml}
-</body>
-</html>`;
+  <html lang="fr">
+  <head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); background: var(--vscode-editor-background); padding: 16px; margin: 0; }
+    h2 { font-size: 15px; font-weight: 500; margin: 0 0 16px; }
+    .file { font-size: 11px; color: var(--vscode-descriptionForeground); margin-bottom: 16px; }
+    .issue { border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+    .issue.critical, .issue.high { border-left: 3px solid var(--vscode-errorForeground); }
+    .issue.medium { border-left: 3px solid var(--vscode-editorWarning-foreground); }
+    .issue.low { border-left: 3px solid var(--vscode-editorInfo-foreground); }
+    .issue-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .severity { font-size: 12px; font-weight: 500; }
+    .type { font-size: 11px; font-family: var(--vscode-editor-font-family); background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); padding: 2px 6px; border-radius: 4px; }
+    .message { font-size: 13px; margin-bottom: 8px; line-height: 1.5; }
+    .fix { margin-top: 10px; }
+    .fix-label { font-size: 12px; font-weight: 500; margin-bottom: 6px; }
+    pre { background: var(--vscode-textCodeBlock-background); border-radius: 4px; padding: 10px; font-family: var(--vscode-editor-font-family); font-size: 12px; overflow-x: auto; margin: 0; white-space: pre-wrap; }
+  </style>
+  </head>
+  <body>
+    <h2>♿ Problèmes d'accessibilité — ligne ${line + 1}</h2>
+    <div class="file">${fileName}</div>
+    ${issuesHtml}
+  </body>
+  </html>`;
 }
 
 export function deactivate() {

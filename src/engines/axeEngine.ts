@@ -1,5 +1,5 @@
 import * as axe from 'axe-core';
-import { chromium, Browser, Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 import { A11yIssue, Severity } from '../core/types';
 import { EXTRACT_COMPUTED_STYLES_SCRIPT, EXTRACT_FOCUS_STYLES_SCRIPT } from '../core/computedStylesExtractor';
 
@@ -22,10 +22,16 @@ export class AxeEngine {
   private static async getBrowser(): Promise<Browser> {
     if (!AxeEngine.browser || !AxeEngine.browser.isConnected()) {
       console.log('[AxeEngine] Launching Playwright browser...');
-      AxeEngine.browser = await chromium.launch({ headless: true });
-      console.log('[AxeEngine] Browser launched.');
+      try {
+        const pw = await import('playwright');
+        AxeEngine.browser = await pw.chromium.launch({ headless: true });
+        console.log('[AxeEngine] Browser launched.');
+      } catch (e) {
+        console.error('[AxeEngine] Playwright import/launch failed:', e);
+        throw e;
+      }
     }
-    return AxeEngine.browser;
+    return AxeEngine.browser as Browser;
   }
 
   public static async dispose(): Promise<void> {
