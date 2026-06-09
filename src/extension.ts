@@ -21,17 +21,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   
 
-  const codeLensDisposable = vscode.languages.registerCodeLensProvider(
-    [
-      { language: 'html' },
-      { language: 'css' },
-      { language: 'typescript' },
-      { language: 'typescriptreact' },
-      { language: 'javascript' },
-      { language: 'javascriptreact' },
-    ],
-    codeLensProvider
-  );
+
 
   const panelDisposable = vscode.window.registerWebviewViewProvider(
     A11yPanelProvider.viewType,
@@ -184,7 +174,6 @@ const fixWithAIFromHoverCommand = vscode.commands.registerCommand(
   }, 500);
 
   context.subscriptions.push(
-    codeLensDisposable,
     panelDisposable,
     changeListener,
     openListener,
