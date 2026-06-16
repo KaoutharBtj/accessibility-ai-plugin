@@ -76,33 +76,59 @@ Format exact :
   }
 
   async suggestFix(
-    issue: MergedIssue,
-    codeContext: string,
-    language: string
-  ): Promise<AIFix | null> {
-    try {
-      const raw = await this.chain.invoke({
-        issueType: issue.normalizedType || issue.id,
-        message:   issue.message,
-        rule:      issue.sources?.join(', ') || issue.rule || '',
-        severity:  issue.severity,
-        code:      codeContext,
-        language,
-        line:      issue.line?.toString() || '?',
-      });
+      issue: MergedIssue,
+      codeContext: string,
+      language: string
+    ): Promise<AIFix | null> {
+     try {
+        const raw = await this.chain.invoke({
+          issueType: issue.normalizedType || issue.id,
+          message:   issue.message,
+          rule:      issue.sources?.join(', ') || issue.rule || '',
+          severity:  issue.severity,
+          code:      codeContext,
+          language,
+          line:      issue.line?.toString() || '?',
+        });
 
-      const clean = raw
-        .replace(/```json|```/g, '')
-        .replace(/^\s*|\s*$/g, '')
-        .trim();
+        console.log('[A11yAgent] Raw response:', raw);
 
-      return JSON.parse(clean) as AIFix;
+        // Extraire le JSON de la réponse
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+          console.error('[A11yAgent] No JSON found in response');
+          return null;
+        }
 
-    } catch (err) {
-      console.error('[A11yAgent] Error:', err);
-      return null;
+        // Décoder les caractères Unicode échappés
+        const decoded = jsonMatch[0]
+          .replace(/\\u003c/g, '<')
+          .replace(/\\u003e/g, '>')
+          .replace(/\\u0026/g, '&');
+
+        const parsed = JSON.parse(decoded) as AIFix;
+
+        // ✅ Nettoyer les numéros de ligne du fixedCode
+        // ex: "line 3: outline: auto;" => "outline: auto;"
+        if (parsed.fixedCode) {
+          parsed.fixedCode = parsed.fixedCode
+            .split('\n')
+            .map((l: string) => l.replace(/^\s*(line\s+)?\d+:\s*/i, ''))
+            .join('\n')
+            .trim();
+        }
+
+        if (!parsed.explanation) parsed.explanation = issue.message;
+        if (!parsed.fixedCode)   parsed.fixedCode   = '';
+        if (!parsed.reason)      parsed.reason      = 'Correction WCAG/RGAA';
+
+        return parsed;
+
+      } catch (err) {
+        console.error('[A11yAgent] Error:', err);
+        return null;
+      }
     }
-  }
 
   static extractContext(
     fileContent: string,

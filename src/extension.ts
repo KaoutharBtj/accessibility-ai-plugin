@@ -6,7 +6,6 @@ import { debounce } from './utils';
 import { HighlightDecorator } from './highlightDecorator';
 import { A11yAgent } from './ai/a11yAgent';
 import { readAIConfig } from './ai/aiConfigReader';
-import { showFixPanel } from './ai/fixPanel';
 import { A11yCodeLensProvider, updateIssuesStore, clearIssuesStore, issuesStore } from './a11yCodeLens';
 import { A11yPanelProvider } from './a11yPanel';
 
@@ -18,10 +17,6 @@ export function activate(context: vscode.ExtensionContext) {
   const highlightDecorator = new HighlightDecorator();
   const codeLensProvider   = new A11yCodeLensProvider();
   const panelProvider      = new A11yPanelProvider(context);
-
-  
-
-
 
   const panelDisposable = vscode.window.registerWebviewViewProvider(
     A11yPanelProvider.viewType,
@@ -36,11 +31,8 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       console.log('[css-a11y] Analyzing:', document.fileName);
-
       const issues = await orchestrator.run(document);
-
       console.log('[css-a11y] Issues found:', issues.length);
-
       diagnosticsManager.update(document.uri, issues);
 
       const editor = vscode.window.visibleTextEditors.find(
@@ -85,57 +77,75 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
- // Ajouter après runNowCommand
-const fixWithAICommand = vscode.commands.registerCommand(
-  'cssA11y.fixWithAI',
-  async (document: vscode.TextDocument, line: number) => {
-    const config = readAIConfig(document.uri);
-    if (!config) {
-      vscode.window.showErrorMessage('Configuration IA introuvable. Créez a11y.config.json.');
-      return;
-    }
-    if (config.provider !== 'ollama' && !config.apiKey) {
-      vscode.window.showErrorMessage(`Clé API manquante pour ${config.provider}.`);
-      return;
-    }
-    const issues = issuesStore.get(document.fileName) || [];
-    const issue  = issues.find((i: MergedIssue) => i.line === line);
-    if (!issue) {
-      vscode.window.showWarningMessage('Aucune violation trouvée sur cette ligne.');
-      return;
-    }
-    await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: `🤖 Analyse en cours...`, cancellable: false },
-      async () => {
-        try {
-          const codeContext = A11yAgent.extractContext(document.getText(), line);
-          const agent       = new A11yAgent(config);
-          const fix         = await agent.suggestFix(issue, codeContext, document.languageId);
-          if (fix) {
-            showFixPanel(fix, issue, document, line);
-          } else {
-            vscode.window.showErrorMessage("L'IA n'a pas pu générer une correction.");
-          }
-        } catch (err) {
-          vscode.window.showErrorMessage(`Erreur IA : ${err}`);
-        }
+  const fixWithAICommand = vscode.commands.registerCommand(
+    'cssA11y.fixWithAI',
+    async (document: vscode.TextDocument, line: number) => {
+      const config = readAIConfig(document.uri);
+      if (!config) {
+        vscode.window.showErrorMessage('Configuration IA introuvable. Creez a11y.config.json.');
+        return;
       }
-    );
-  }
-);
+      if (config.provider !== 'ollama' && !config.apiKey) {
+        vscode.window.showErrorMessage(`Cle API manquante pour ${config.provider}.`);
+        return;
+      }
 
-const fixWithAIFromHoverCommand = vscode.commands.registerCommand(
-  'cssA11y.fixWithAIFromHover',
-  async (fileName: string, line: number) => {
-    const document = vscode.window.activeTextEditor?.document;
-    if (!document) {
-      vscode.window.showErrorMessage('Aucun fichier actif trouvé.');
-      return;
+      const issues = issuesStore.get(document.fileName) || [];
+      const issue  = issues.find((i: MergedIssue) => i.line === line);
+      if (!issue) {
+        vscode.window.showWarningMessage('Aucune violation trouvee sur cette ligne.');
+        return;
+      }
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Correction IA en cours...`, cancellable: false },
+        async () => {
+          try {
+            const codeContext = A11yAgent.extractContext(document.getText(), line);
+            const agent       = new A11yAgent(config);
+            const fix         = await agent.suggestFix(issue, codeContext, document.languageId);
+
+            if (fix && fix.fixedCode) {
+              const lineIndex = Math.max(0, line - 1);
+              const editor = vscode.window.visibleTextEditors.find(
+                e => e.document.uri.toString() === document.uri.toString()
+              );
+
+              if (editor) {
+                const lineRange = editor.document.lineAt(lineIndex).range;
+                await editor.edit(editBuilder => {
+                  editBuilder.replace(lineRange, fix.fixedCode);
+                });
+                vscode.window.showInformationMessage(
+                  `Correction appliquee ligne ${line} — ${fix.explanation}`
+                );
+              } else {
+                vscode.window.showErrorMessage('Editeur non trouve — cliquez sur le fichier et reessayez.');
+              }
+
+            } else {
+              vscode.window.showErrorMessage("L'IA n'a pas pu generer une correction.");
+            }
+
+          } catch (err) {
+            vscode.window.showErrorMessage(`Erreur IA : ${err}`);
+          }
+        }
+      );
     }
-    vscode.commands.executeCommand('cssA11y.fixWithAI', document, line);
-  }
-);
+  );
 
+  const fixWithAIFromHoverCommand = vscode.commands.registerCommand(
+    'cssA11y.fixWithAIFromHover',
+    async (fileName: string, line: number) => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document) {
+        vscode.window.showErrorMessage('Aucun fichier actif trouve.');
+        return;
+      }
+      vscode.commands.executeCommand('cssA11y.fixWithAI', document, line);
+    }
+  );
 
   const changeListener = vscode.workspace.onDidChangeTextDocument(event => {
     if (event.contentChanges.length > 0) runAnalysis(event.document);
@@ -201,7 +211,7 @@ function showIssuePanel(
 ): void {
   const panel = vscode.window.createWebviewPanel(
     'a11yIssueDetail',
-    `♿ Accessibilité — ligne ${line + 1}`,
+    `Accessibilite — ligne ${line + 1}`,
     vscode.ViewColumn.Beside,
     {
       enableScripts: false,
@@ -211,19 +221,19 @@ function showIssuePanel(
   );
 
   const severityLabels: Record<string, string> = {
-    critical: '🔴 Critique',
-    high:     '🔴 Élevé',
-    medium:   '🟡 Moyen',
-    low:      '🔵 Faible',
+    critical: 'Critique',
+    high:     'Eleve',
+    medium:   'Moyen',
+    low:      'Faible',
   };
 
   const fixes: Record<string, string> = {
     IMAGE_MISSING_ALT:       `&lt;img src="..." alt="Description de l'image" /&gt;`,
-    INPUT_MISSING_LABEL:     `&lt;label htmlFor="field"&gt;Étiquette&lt;/label&gt;\n&lt;input id="field" type="text" /&gt;`,
+    INPUT_MISSING_LABEL:     `&lt;label htmlFor="field"&gt;Etiquette&lt;/label&gt;\n&lt;input id="field" type="text" /&gt;`,
     INTERACTIVE_NO_KEYBOARD: `&lt;div onClick={fn} onKeyDown={(e) =&gt; e.key==='Enter'&amp;&amp;fn()} role="button" tabIndex={0}&gt;`,
     IFRAME_MISSING_TITLE:    `&lt;iframe src="..." title="Description du contenu" /&gt;`,
     HTML_MISSING_LANG:       `&lt;html lang="fr"&gt;`,
-    BUTTON_MISSING_TYPE:     `&lt;button type="button"&gt;Libellé&lt;/button&gt;`,
+    BUTTON_MISSING_TYPE:     `&lt;button type="button"&gt;Libelle&lt;/button&gt;`,
     ARIA_MISSING_LABEL:      `&lt;div role="button" aria-label="Description" tabIndex={0}&gt;`,
     CSS_HOVER_NO_FOCUS:      `a:hover, a:focus, a:focus-visible { /* styles */ }`,
     CSS_INFINITE_ANIMATION:  `@media (prefers-reduced-motion: no-preference) { .el { animation: spin 1s infinite; } }`,
@@ -233,7 +243,7 @@ function showIssuePanel(
   const issuesHtml = issues.map(issue => {
     const fix      = fixes[issue.normalizedType] || '';
     const fixBlock = fix
-      ? `<div class="fix"><div class="fix-label">💡 Correction suggérée</div><pre>${fix}</pre></div>`
+      ? `<div class="fix"><div class="fix-label">Correction suggeree</div><pre>${fix}</pre></div>`
       : '';
 
     return `
@@ -270,7 +280,7 @@ function showIssuePanel(
   </style>
   </head>
   <body>
-    <h2>♿ Problèmes d'accessibilité — ligne ${line + 1}</h2>
+    <h2>Problemes d'accessibilite — ligne ${line + 1}</h2>
     <div class="file">${fileName}</div>
     ${issuesHtml}
   </body>

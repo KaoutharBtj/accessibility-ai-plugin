@@ -103,13 +103,13 @@ export class ESLintEngine {
           return {
             JSXElement(node: any) {
               if (node.openingElement.name.name !== 'a') return;
- 
+
               const vagueTexts = [
                 'clique ici', 'cliquez ici', 'ici', 'lire plus',
                 'lire la suite', 'en savoir plus', 'click here',
                 'here', 'read more', 'more', 'suite', 'voir',
               ];
- 
+
               const getText = (n: any): string => {
                 if (!n.children) return '';
                 return n.children
@@ -122,7 +122,7 @@ export class ESLintEngine {
                   .trim()
                   .toLowerCase();
               };
- 
+
               const text = getText(node);
               if (vagueTexts.includes(text)) {
                 context.report({
@@ -134,7 +134,6 @@ export class ESLintEngine {
           };
         },
       });
-
 
       // Règle 5 — bouton sans type
       ESLintEngine.linter.defineRule('jsx-a11y/button-has-type', {
@@ -218,17 +217,27 @@ export class ESLintEngine {
           ecmaFeatures: { jsx: true },
         },
         rules: {
-          'jsx-a11y/alt-text':                    'error',
-          'jsx-a11y/input-missing-label':         'error',
-          'jsx-a11y/interactive-no-keyboard':     'warn',
-          'jsx-a11y/link-vague-text':             'error',
-          'jsx-a11y/button-has-type':             'warn',
-          'jsx-a11y/mouse-events-have-key-events':'warn', 
+          'jsx-a11y/alt-text':                     'error',
+          'jsx-a11y/input-missing-label':          'error',
+          'jsx-a11y/interactive-no-keyboard':      'warn',
+          'jsx-a11y/link-vague-text':              'error',
+          'jsx-a11y/button-has-type':              'warn',
+          'jsx-a11y/mouse-events-have-key-events': 'warn',
         },
       }, filePath);
 
-      return ESLintEngine.mapResults(results, filePath);
-    } catch (err) {
+      // ✅ Filtrer l'erreur "No matching configuration"
+      const filtered = results.filter(
+        (msg) => !msg.message.includes('No matching configuration')
+      );
+
+      return ESLintEngine.mapResults(filtered, filePath);
+
+    } catch (err: any) {
+      // ✅ Ignorer l'erreur de configuration manquante
+      if (err?.message?.includes('No matching configuration')) {
+        return [];
+      }
       console.error('[ESLintEngine] Linting error:', err);
       return [];
     }
